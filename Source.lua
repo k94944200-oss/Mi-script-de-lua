@@ -26,16 +26,87 @@ local config = {
     AutoBagFruit = false,
     AutoServerHop = false,
     SmartHopIfFull = true,
-    AutoEquipFruit = true,      -- NUEVO: Auto equipar fruta
-    AutoStoreFruit = true,      -- NUEVO: Auto guardar en Fruit Bag
+    AutoEquipFruit = true,
+    AutoStoreFruit = true,
     TweenSpeed = 250,
     HopDelay = 15,
     ESPUpdateRate = 0.1,
     FruitScanRate = 0.3,
     BagRange = 20,
     BagHoldDuration = 7,
-    StoreDelay = 2              -- Esperar 2s para que aparezca el menú
+    StoreDelay = 2
 }
+
+--// SISTEMA DE GUARDADO DE CONFIGURACIÓN
+local SaveSystem = {
+    ConfigName = "HazeSeasAutoHopConfig",
+    SavePath = "HazeSeas_AutoHop_SaveData"
+}
+
+function SaveSystem:SaveConfig()
+    local success, err = pcall(function()
+        local json = HttpService:JSONEncode(config)
+        if writefile then
+            writefile(self.SavePath .. ".json", json)
+            print("✅ Configuración guardada exitosamente!")
+        end
+    end)
+    
+    if not success then
+        warn("❌ Error al guardar la configuración: " .. tostring(err))
+    end
+end
+
+function SaveSystem:LoadConfig()
+    local success, data = pcall(function()
+        if isfile and isfile(self.SavePath .. ".json") then
+            local json = readfile(self.SavePath .. ".json")
+            return HttpService:JSONDecode(json)
+        end
+        return nil
+    end)
+    
+    if success and data then
+        for key, value in pairs(data) do
+            if config[key] ~= nil then
+                config[key] = value
+            end
+        end
+        print("✅ Configuración cargada exitosamente!")
+        return true
+    else
+        print("ℹ️ No se encontró configuración guardada, usando valores predeterminados")
+        return false
+    end
+end
+
+function SaveSystem:ResetConfig()
+    config = {
+        ESPFruitDrop = false,
+        AutoTween = false,
+        AutoBagFruit = false,
+        AutoServerHop = false,
+        SmartHopIfFull = true,
+        AutoEquipFruit = true,
+        AutoStoreFruit = true,
+        TweenSpeed = 250,
+        HopDelay = 15,
+        ESPUpdateRate = 0.1,
+        FruitScanRate = 0.3,
+        BagRange = 20,
+        BagHoldDuration = 7,
+        StoreDelay = 2
+    }
+    self:SaveConfig()
+    print("🔄 Configuración reiniciada a valores predeterminados")
+end
+
+function SaveSystem:AutoLoad()
+    self:LoadConfig()
+end
+
+-- Cargar configuración automáticamente
+SaveSystem:AutoLoad()
 
 --// FRUTAS MÍTICAS Y LEGENDARIAS
 local FRUIT_NAMES = {
@@ -97,8 +168,8 @@ end
 
 --// FRAME PRINCIPAL
 local main = Instance.new("Frame")
-main.Size = UDim2.new(0, 340, 0, 480)
-main.Position = UDim2.new(0.5, -170, 0.5, -240)
+main.Size = UDim2.new(0, 340, 0, 520)
+main.Position = UDim2.new(0.5, -170, 0.5, -260)
 main.BackgroundColor3 = COLORS.BG
 main.BorderSizePixel = 0
 main.Active = true
@@ -234,7 +305,7 @@ modeLabel.Parent = main
 
 --// CONTENEDOR DE TOGGLES
 local toggleContainer = Instance.new("Frame")
-toggleContainer.Size = UDim2.new(1, -24, 1, -145)
+toggleContainer.Size = UDim2.new(1, -24, 1, -185)
 toggleContainer.Position = UDim2.new(0, 12, 0, 135)
 toggleContainer.BackgroundTransparency = 1
 toggleContainer.Parent = main
@@ -289,6 +360,7 @@ local function createToggle(name, key, color)
     btn.MouseButton1Click:Connect(function()
         config[key] = not config[key]
         update()
+        SaveSystem:SaveConfig() -- Guardar automáticamente
     end)
     
     update()
@@ -303,6 +375,61 @@ createToggle("⚔️ Auto Equip", "AutoEquipFruit", COLORS.Gold)
 createToggle("💼 Auto Fruit Bag", "AutoStoreFruit", COLORS.Pink)
 createToggle("🌐 Auto Server Hop", "AutoServerHop", COLORS.Red)
 createToggle("💼 Hop If Full", "SmartHopIfFull", COLORS.Yellow)
+
+--// BOTONES DE GUARDADO Y RESET
+local saveResetContainer = Instance.new("Frame")
+saveResetContainer.Size = UDim2.new(1, -24, 0, 40)
+saveResetContainer.Position = UDim2.new(0, 12, 0, 470)
+saveResetContainer.BackgroundTransparency = 1
+saveResetContainer.Parent = main
+
+local saveBtn = Instance.new("TextButton")
+saveBtn.Size = UDim2.new(0.48, -5, 1, 0)
+saveBtn.Position = UDim2.new(0, 0, 0, 0)
+saveBtn.BackgroundColor3 = COLORS.Green
+saveBtn.Text = "💾 Guardar"
+saveBtn.Font = Enum.Font.GothamBold
+saveBtn.TextSize = 12
+saveBtn.TextColor3 = COLORS.Text
+saveBtn.Parent = saveResetContainer
+Instance.new("UICorner", saveBtn).CornerRadius = UDim.new(0, 8)
+
+local resetBtn = Instance.new("TextButton")
+resetBtn.Size = UDim2.new(0.48, -5, 1, 0)
+resetBtn.Position = UDim2.new(0.52, 0, 0, 0)
+resetBtn.BackgroundColor3 = COLORS.Red
+resetBtn.Text = "🔄 Reset"
+resetBtn.Font = Enum.Font.GothamBold
+resetBtn.TextSize = 12
+resetBtn.TextColor3 = COLORS.Text
+resetBtn.Parent = saveResetContainer
+Instance.new("UICorner", resetBtn).CornerRadius = UDim.new(0, 8)
+
+saveBtn.MouseButton1Click:Connect(function()
+    SaveSystem:SaveConfig()
+    print("💾 Configuración guardada manualmente")
+end)
+
+resetBtn.MouseButton1Click:Connect(function()
+    SaveSystem:ResetConfig()
+    -- Actualizar toggles
+    for key, btn in pairs(toggleButtons) do
+        if config[key] then
+            btn.BackgroundColor3 = key == "ESPFruitDrop" and COLORS.Mythic or
+                                 key == "AutoTween" and COLORS.Orange or
+                                 key == "AutoBagFruit" and COLORS.Cyan or
+                                 key == "AutoEquipFruit" and COLORS.Gold or
+                                 key == "AutoStoreFruit" and COLORS.Pink or
+                                 key == "AutoServerHop" and COLORS.Red or
+                                 COLORS.Yellow
+            btn.Text = "ON"
+        else
+            btn.BackgroundColor3 = COLORS.Gray
+            btn.Text = "OFF"
+        end
+    end
+    print("🔄 Configuración reiniciada")
+end)
 
 --// BOTÓN FLOTANTE
 local floatBtn = Instance.new("TextButton")
@@ -757,7 +884,7 @@ local function autoBagFruit(fruit)
     local touchHeld = false
     pcall(function()
         if firetouchinterest then
-            firetouchinterest(hrp, fruit.part, 0) -- Iniciar touch
+            firetouchinterest(hrp, fruit.part, 0)
             touchHeld = true
         end
     end)
@@ -771,390 +898,4 @@ local function autoBagFruit(fruit)
     
     -- CONTAR 7 SEGUNDOS
     local startTime = tick()
-    while tick() - startTime < config.BagHoldDuration do
-        if not fruit.part or not fruit.part.Parent then
-            success = true
-            break
-        end
-        
-        checkInventory()
-        if states.hasFruit then
-            success = true
-            break
-        end
-        
-        local elapsed = tick() - startTime
-        local remaining = math.ceil(config.BagHoldDuration - elapsed)
-        bagStatus.Text = "🎒 BAGGING: " .. fruit.name .. " [" .. remaining .. "s]"
-        
-        task.wait(0.1)
-    end
-    
-    -- LIBERAR
-    if touchHeld then
-        pcall(function()
-            firetouchinterest(hrp, fruit.part, 1)
-        end)
-    end
-    
-    if keyHeld then
-        pcall(function()
-            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
-        end)
-    end
-    
-    task.wait(0.3)
-    checkInventory()
-    if states.hasFruit then
-        success = true
-    end
-    
-    states.bagging = false
-    states.currentBagFruit = nil
-    
-    if success then
-        print("✅ " .. fruit.name .. " RECOGIDA!")
-        bagStatus.Text = "✅ " .. fruit.name .. " RECOGIDA!"
-        bagStatus.TextColor3 = COLORS.Green
-        
-        -- INICIAR AUTO EQUIP
-        if config.AutoEquipFruit then
-            task.spawn(function()
-                autoEquipFruit(fruit.name)
-            end)
-        end
-    else
-        bagStatus.Text = "🎒 Esperando..."
-        bagStatus.TextColor3 = COLORS.Cyan
-    end
-    
-    task.wait(1)
-    if not states.bagging then
-        bagStatus.Text = "🎒 Esperando..."
-        bagStatus.TextColor3 = COLORS.Cyan
-    end
-    
-    return success
-end
-
---// AUTO EQUIP FRUIT
-local function autoEquipFruit(fruitName)
-    if not config.AutoEquipFruit then return end
-    
-    print("⚔️ Intentando equipar: " .. fruitName)
-    storeStatus.Text = "⚔️ Equipando " .. fruitName .. "..."
-    storeStatus.TextColor3 = COLORS.Gold
-    
-    task.wait(1) -- Esperar a que aparezca en backpack
-    
-    local backpack = player:FindFirstChild("Backpack")
-    if not backpack then return end
-    
-    -- Buscar la fruta en backpack
-    local fruitTool = nil
-    for _, item in pairs(backpack:GetChildren()) do
-        if item.Name == fruitName and item:IsA("Tool") then
-            fruitTool = item
-            break
-        end
-    end
-    
-    if fruitTool then
-        -- Equipar la fruta
-        pcall(function()
-            humanoid = character:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                humanoid:EquipTool(fruitTool)
-                print("✅ " .. fruitName .. " equipada!")
-                storeStatus.Text = "✅ " .. fruitName .. " equipada!"
-                
-                -- INICIAR AUTO STORE DESPUÉS DE EQUIPAR
-                if config.AutoStoreFruit then
-                    task.wait(2) -- Esperar menú
-                    autoStoreFruit()
-                end
-            end
-        end)
-    else
-        print("⚠️ No se encontró " .. fruitName .. " en backpack")
-        storeStatus.Text = "💼 Auto Store: Listo"
-    end
-end
-
---// AUTO STORE FRUIT - SELECCIONAR FRUIT BAG (SEGUNDA OPCIÓN)
-local function autoStoreFruit()
-    if states.storing then return end
-    states.storing = true
-    
-    print("💼 Buscando menú de Fruit Bag...")
-    storeStatus.Text = "💼 Buscando menú..."
-    storeStatus.TextColor3 = COLORS.Pink
-    
-    -- Esperar a que aparezca el menú de opciones (hasta 5 segundos)
-    local menuFound = false
-    local startSearch = tick()
-    
-    while tick() - startSearch < 5 do
-        -- Buscar el menú de opciones en PlayerGui
-        local playerGui = player:FindFirstChild("PlayerGui")
-        if playerGui then
-            -- Buscar frames/comunes que contengan opciones de fruta
-            local possibleNames = {"FruitMenu", "Options", "Choose", "Select", "Menu", "UI", "Main", "Dialog"}
-            
-            for _, name in ipairs(possibleNames) do
-                local gui = playerGui:FindFirstChild(name, true)
-                if gui and gui:IsA("GuiObject") and gui.Visible then
-                    -- Buscar botones dentro del menú
-                    local buttons = {}
-                    for _, child in pairs(gui:GetDescendants()) do
-                        if child:IsA("TextButton") or child:IsA("ImageButton") then
-                            table.insert(buttons, child)
-                        end
-                    end
-                    
-                    -- Si hay al menos 2 botones, seleccionar el segundo (Fruit Bag)
-                    if #buttons >= 2 then
-                        menuFound = true
-                        
-                        -- Ordenar botones por posición Y (de arriba a abajo)
-                        table.sort(buttons, function(a, b)
-                            return a.AbsolutePosition.Y < b.AbsolutePosition.Y
-                        end)
-                        
-                        local secondButton = buttons[2] -- Segunda opción = Fruit Bag
-                        
-                        print("🎯 Menú encontrado! Seleccionando opción 2 (Fruit Bag)")
-                        storeStatus.Text = "🎯 Seleccionando Fruit Bag..."
-                        
-                        -- Simular click/touch en el botón
-                        pcall(function()
-                            -- Método 1: firesignal
-                            if secondButton.Activated then
-                                secondButton.Activated:Fire()
-                            end
-                        end)
-                        
-                        pcall(function()
-                            -- Método 2: VirtualInputManager click
-                            local pos = secondButton.AbsolutePosition
-                            local size = secondButton.AbsoluteSize
-                            local centerX = pos.X + size.X/2
-                            local centerY = pos.Y + size.Y/2
-                            
-                            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 0)
-                            task.wait(0.1)
-                            VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 0)
-                        end)
-                        
-                        pcall(function()
-                            -- Método 3: InputObject simulation
-                            secondButton.InputBegan:Fire({
-                                UserInputType = Enum.UserInputType.MouseButton1,
-                                Position = secondButton.AbsolutePosition + secondButton.AbsoluteSize/2
-                            })
-                        end)
-                        
-                        -- También intentar con tecla numérica 2
-                        task.wait(0.2)
-                        pcall(function()
-                            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Two, false, game)
-                            task.wait(0.1)
-                            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Two, false, game)
-                        end)
-                        
-                        print("✅ Fruit Bag seleccionado!")
-                        storeStatus.Text = "✅ Guardada en Fruit Bag!"
-                        storeStatus.TextColor3 = COLORS.Green
-                        
-                        states.lastStoredFruit = tick()
-                        break
-                    end
-                end
-            end
-            
-            if menuFound then break end
-        end
-        
-        task.wait(0.2)
-    end
-    
-    if not menuFound then
-        print("⚠️ Menú no encontrado, intentando métodos alternativos...")
-        
-        -- Método alternativo: Buscar RemoteEvents comunes de guardado
-        pcall(function()
-            local storeRemotes = {"StoreFruit", "SaveFruit", "PutInBag", "FruitBag", "StoreTool"}
-            for _, remoteName in ipairs(storeRemotes) do
-                local remote = ReplicatedStorage:FindFirstChild(remoteName, true)
-                if remote and remote:IsA("RemoteEvent") then
-                    remote:FireServer()
-                    print("✅ Usado RemoteEvent: " .. remoteName)
-                    storeStatus.Text = "✅ Guardada vía Remote!"
-                    storeStatus.TextColor3 = COLORS.Green
-                    menuFound = true
-                    break
-                end
-            end
-        end)
-        
-        if not menuFound then
-            storeStatus.Text = "⚠️ Menú no encontrado"
-            storeStatus.TextColor3 = COLORS.Red
-        end
-    end
-    
-    task.wait(2)
-    storeStatus.Text = "💼 Auto Store: Listo"
-    storeStatus.TextColor3 = COLORS.Pink
-    states.storing = false
-end
-
---// SERVER HOP
-local function serverHop()
-    if states.hopping then return end
-    states.hopping = true
-    timerLabel.Text = "🔄 Buscando servidor..."
-    
-    local success = pcall(function()
-        local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?limit=100&sort=Desc&excludeFullGames=true"
-        local response = game:HttpGet(url)
-        local data = HttpService:JSONDecode(response)
-        
-        local servers = {}
-        for _, server in ipairs(data.data) do
-            if server.playing < server.maxPlayers and server.id ~= game.JobId then
-                table.insert(servers, server.id)
-            end
-        end
-        
-        if #servers > 0 then
-            local selectedServer = servers[math.random(1, math.min(10, #servers))]
-            timerLabel.Text = "🔄 Teletransportando..."
-            TeleportService:TeleportToPlaceInstance(game.PlaceId, selectedServer, player)
-        else
-            timerLabel.Text = "⚠️ No hay servidores"
-            task.wait(2)
-            states.hopping = false
-        end
-    end)
-    
-    if not success then
-        timerLabel.Text = "❌ Error"
-        task.wait(2)
-        states.hopping = false
-    end
-end
-
---// LOOPS PRINCIPALES
-
--- Loop principal
-task.spawn(function()
-    while task.wait(0.2) do
-        if not character or not hrp then
-            character = player.Character
-            if character then
-                hrp = character:WaitForChild("HumanoidRootPart", 5)
-            end
-            continue
-        end
-        
-        local fruits = getFruits()
-        checkInventory()
-        
-        -- Si está baggeando o almacenando, no hacer otras cosas
-        if states.bagging or states.storing then
-            if states.bagging and states.currentBagFruit then
-                if states.currentBagFruit.part and states.currentBagFruit.part.Parent then
-                    local dist = (hrp.Position - states.currentBagFruit.part.Position).Magnitude
-                    if dist > config.BagRange * 1.5 then
-                        pcall(function()
-                            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
-                        end)
-                        states.bagging = false
-                        states.currentBagFruit = nil
-                        bagStatus.Text = "🎒 Esperando..."
-                        bagStatus.TextColor3 = COLORS.Cyan
-                    end
-                end
-            end
-            continue
-        end
-        
-        -- Auto Tween + Auto Bag
-        if #fruits > 0 then
-            local target = fruits[1]
-            
-            if target.distance <= config.BagRange and config.AutoBagFruit and not states.bagging then
-                autoBagFruit(target)
-            elseif config.AutoTween and not states.tweening and not states.bagging then
-                tweenToFruit(target)
-                if config.AutoBagFruit then
-                    task.wait(0.3)
-                    autoBagFruit(target)
-                end
-            end
-        end
-        
-        -- Server Hop
-        if not states.bagging and not states.storing then
-            local shouldHop = false
-            local hopReason = ""
-            
-            if config.AutoServerHop and #fruits == 0 then
-                shouldHop = true
-                hopReason = "No hay frutas míticas"
-            end
-            
-            if config.SmartHopIfFull and states.inventoryFull then
-                shouldHop = true
-                hopReason = "Inventario lleno"
-            end
-            
-            if shouldHop and not states.hopping then
-                states.currentHop = states.currentHop - 0.2
-                
-                if states.currentHop <= 0 then
-                    serverHop()
-                    states.currentHop = config.HopDelay
-                else
-                    timerLabel.Text = "⏱️ " .. hopReason .. " - Hop: " .. math.floor(states.currentHop) .. "s"
-                end
-            elseif not shouldHop then
-                states.currentHop = config.HopDelay
-                timerLabel.Text = "⏱️ Hop in: " .. states.currentHop .. "s"
-            end
-        end
-    end
-end)
-
--- ESP Loop
-task.spawn(function()
-    while task.wait(config.ESPUpdateRate) do
-        if config.ESPFruitDrop then
-            updateESP()
-        end
-    end
-end)
-
--- Reconexión
-player.CharacterAdded:Connect(function(char)
-    character = char
-    hrp = char:WaitForChild("HumanoidRootPart")
-    states.tweening = false
-    states.bagging = false
-    states.storing = false
-    states.currentBagFruit = nil
-    pcall(function()
-        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
-    end)
-    print("🔄 Personaje reconectado")
-end)
-
--- Mensaje de carga
-print("=" .. string.rep("=", 60))
-print("  👑 Auto Server Hop - HAZE SEAS")
-print("  🎯 SOLO FRUTAS MÍTICAS/LEGENDARIAS")
-print("  🎒 Auto Bag: 7s manteniendo presionado")
-print("  ⚔️ Auto Equip: Equipa automáticamente")
-print("  💼 Auto Store: Selecciona Fruit Bag (opción 2)")
-print("=" .. string.rep("=", 60))
+    while tick() -
